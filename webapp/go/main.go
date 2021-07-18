@@ -362,7 +362,9 @@ func postChair(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	defer tx.Rollback()
-	for _, row := range records {
+
+	chairs := make([]Chair, len(records))
+	for i, row := range records {
 		rm := RecordMapper{Record: row}
 		id := rm.NextInt()
 		name := rm.NextString()
@@ -381,12 +383,33 @@ func postChair(c echo.Context) error {
 			c.Logger().Errorf("failed to read record: %v", err)
 			return c.NoContent(http.StatusBadRequest)
 		}
-		_, err := tx.Exec("INSERT INTO chair(id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock)
-		if err != nil {
-			c.Logger().Errorf("failed to insert chair: %v", err)
-			return c.NoContent(http.StatusInternalServerError)
+
+		// バルクインサートの準備
+		chairs[i] = Chair{
+			ID:          int64(id),
+			Name:        name,
+			Description: description,
+			Thumbnail:   thumbnail,
+			Price:       int64(price),
+			Height:      int64(height),
+			Width:       int64(width),
+			Depth:       int64(depth),
+			Color:       color,
+			Features:    features,
+			Kind:        kind,
+			Popularity:  int64(popularity),
+			Stock:       int64(stock),
 		}
 	}
+
+	// バルクインサート
+	query := "INSERT INTO chair(id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock) " +
+		"VALUES(:id,:name,:description,:thumbnail,;price,:height,:width,:depth,:color,:feature,:kind,:popularity,:stock)"
+	if _, err := tx.Exec(query, chairs); err != nil {
+		c.Logger().Errorf("failed to insert chair: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	if err := tx.Commit(); err != nil {
 		c.Logger().Errorf("failed to commit tx: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -610,7 +633,7 @@ func getEstateDetail(c echo.Context) error {
 	}
 
 	var estate Estate
-	err = db.Get(&estate, "SELECT * FROM estate WHERE id = ?", id)
+	err = db.Get(&estate, "SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE id = ?", id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.Echo().Logger.Infof("getEstateDetail estate id %v not found", id)
@@ -770,7 +793,7 @@ func searchEstates(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	searchQuery := "SELECT * FROM estate WHERE "
+	searchQuery := "SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE "
 	countQuery := "SELECT COUNT(*) FROM estate WHERE "
 	searchCondition := strings.Join(conditions, " AND ")
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
@@ -800,7 +823,7 @@ func searchEstates(c echo.Context) error {
 
 func getLowPricedEstate(c echo.Context) error {
 	estates := make([]Estate, 0, Limit)
-	query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
+	query := `SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
 	err := db.Select(&estates, query, Limit)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -837,7 +860,7 @@ func searchRecommendedEstateWithChair(c echo.Context) error {
 	w := chair.Width
 	h := chair.Height
 	d := chair.Depth
-	query = `SELECT * FROM estate WHERE (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) ORDER BY popularity DESC, id ASC LIMIT ?`
+	query = `SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) ORDER BY popularity DESC, id ASC LIMIT ?`
 	err = db.Select(&estates, query, w, h, w, d, h, w, h, d, d, w, d, h, Limit)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -862,44 +885,23 @@ func searchEstateNazotte(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	b := coordinates.getBoundingBox()
-	estatesInBoundingBox := []Estate{}
-	query := `SELECT * FROM estate WHERE latitude <= ? AND latitude >= ? AND longitude <= ? AND longitude >= ? ORDER BY popularity DESC, id ASC`
-	err = db.Select(&estatesInBoundingBox, query, b.BottomRightCorner.Latitude, b.TopLeftCorner.Latitude, b.BottomRightCorner.Longitude, b.TopLeftCorner.Longitude)
-	if err == sql.ErrNoRows {
-		c.Echo().Logger.Infof("select * from estate where latitude ...", err)
-		return c.JSON(http.StatusOK, EstateSearchResponse{Count: 0, Estates: []Estate{}})
-	} else if err != nil {
-		c.Echo().Logger.Errorf("database execution error : %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-
 	estatesInPolygon := []Estate{}
-	for _, estate := range estatesInBoundingBox {
-		validatedEstate := Estate{}
-
-		point := fmt.Sprintf("'POINT(%f %f)'", estate.Latitude, estate.Longitude)
-		query := fmt.Sprintf(`SELECT * FROM estate WHERE id = ? AND ST_Contains(ST_PolygonFromText(%s), ST_GeomFromText(%s))`, coordinates.coordinatesToText(), point)
-		err = db.Get(&validatedEstate, query, estate.ID)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				continue
-			} else {
-				c.Echo().Logger.Errorf("db access is failed on executing validate if estate is in polygon : %v", err)
-				return c.NoContent(http.StatusInternalServerError)
-			}
+	query := fmt.Sprintf(
+		`SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE ST_Contains(ST_PolygonFromText(%s), locate order by search_popularity, id limit ?`,
+		coordinates.coordinatesToText(),
+	)
+	err = db.Get(&estatesInPolygon, query, NazotteLimit)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return c.NoContent(http.StatusBadRequest)
 		} else {
-			estatesInPolygon = append(estatesInPolygon, validatedEstate)
+			c.Echo().Logger.Errorf("db access is failed on executing validate if estate is in polygon : %v", err)
+			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
 
 	var re EstateSearchResponse
-	re.Estates = []Estate{}
-	if len(estatesInPolygon) > NazotteLimit {
-		re.Estates = estatesInPolygon[:NazotteLimit]
-	} else {
-		re.Estates = estatesInPolygon
-	}
+	re.Estates = estatesInPolygon
 	re.Count = int64(len(re.Estates))
 
 	return c.JSON(http.StatusOK, re)
@@ -925,7 +927,7 @@ func postEstateRequestDocument(c echo.Context) error {
 	}
 
 	estate := Estate{}
-	query := `SELECT * FROM estate WHERE id = ?`
+	query := `SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE id = ?`
 	err = db.Get(&estate, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -940,34 +942,6 @@ func postEstateRequestDocument(c echo.Context) error {
 
 func getEstateSearchCondition(c echo.Context) error {
 	return c.JSON(http.StatusOK, estateSearchCondition)
-}
-
-func (cs Coordinates) getBoundingBox() BoundingBox {
-	coordinates := cs.Coordinates
-	boundingBox := BoundingBox{
-		TopLeftCorner: Coordinate{
-			Latitude: coordinates[0].Latitude, Longitude: coordinates[0].Longitude,
-		},
-		BottomRightCorner: Coordinate{
-			Latitude: coordinates[0].Latitude, Longitude: coordinates[0].Longitude,
-		},
-	}
-	for _, coordinate := range coordinates {
-		if boundingBox.TopLeftCorner.Latitude > coordinate.Latitude {
-			boundingBox.TopLeftCorner.Latitude = coordinate.Latitude
-		}
-		if boundingBox.TopLeftCorner.Longitude > coordinate.Longitude {
-			boundingBox.TopLeftCorner.Longitude = coordinate.Longitude
-		}
-
-		if boundingBox.BottomRightCorner.Latitude < coordinate.Latitude {
-			boundingBox.BottomRightCorner.Latitude = coordinate.Latitude
-		}
-		if boundingBox.BottomRightCorner.Longitude < coordinate.Longitude {
-			boundingBox.BottomRightCorner.Longitude = coordinate.Longitude
-		}
-	}
-	return boundingBox
 }
 
 func (cs Coordinates) coordinatesToText() string {

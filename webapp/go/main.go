@@ -404,7 +404,7 @@ func postChair(c echo.Context) error {
 
 	// バルクインサート
 	query := "INSERT INTO chair(id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock) " +
-		"VALUES(:id,:name,:description,:thumbnail,;price,:height,:width,:depth,:color,:feature,:kind,:popularity,:stock)"
+		"VALUES(:id,:name,:description,:thumbnail,:price,:height,:width,:depth,:color,:feature,:kind,:popularity,:stock)"
 	if _, err := tx.Exec(query, chairs); err != nil {
 		c.Logger().Errorf("failed to insert chair: %v", err)
 		return c.NoContent(http.StatusInternalServerError)

@@ -633,7 +633,7 @@ func getEstateDetail(c echo.Context) error {
 	}
 
 	var estate Estate
-	err = db.Get(&estate, "SELECT * FROM estate WHERE id = ?", id)
+	err = db.Get(&estate, "SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE id = ?", id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.Echo().Logger.Infof("getEstateDetail estate id %v not found", id)
@@ -793,7 +793,7 @@ func searchEstates(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	searchQuery := "SELECT * FROM estate WHERE "
+	searchQuery := "SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE "
 	countQuery := "SELECT COUNT(*) FROM estate WHERE "
 	searchCondition := strings.Join(conditions, " AND ")
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
@@ -823,7 +823,7 @@ func searchEstates(c echo.Context) error {
 
 func getLowPricedEstate(c echo.Context) error {
 	estates := make([]Estate, 0, Limit)
-	query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
+	query := `SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
 	err := db.Select(&estates, query, Limit)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -860,7 +860,7 @@ func searchRecommendedEstateWithChair(c echo.Context) error {
 	w := chair.Width
 	h := chair.Height
 	d := chair.Depth
-	query = `SELECT * FROM estate WHERE (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) ORDER BY popularity DESC, id ASC LIMIT ?`
+	query = `SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) ORDER BY popularity DESC, id ASC LIMIT ?`
 	err = db.Select(&estates, query, w, h, w, d, h, w, h, d, d, w, d, h, Limit)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -887,7 +887,7 @@ func searchEstateNazotte(c echo.Context) error {
 
 	estatesInPolygon := []Estate{}
 	query := fmt.Sprintf(
-		`SELECT * FROM estate WHERE ST_Contains(ST_PolygonFromText(%s), locate order by search_popularity, id limit ?`,
+		`SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE ST_Contains(ST_PolygonFromText(%s), locate order by search_popularity, id limit ?`,
 		coordinates.coordinatesToText(),
 	)
 	err = db.Get(&estatesInPolygon, query, NazotteLimit)
@@ -927,7 +927,7 @@ func postEstateRequestDocument(c echo.Context) error {
 	}
 
 	estate := Estate{}
-	query := `SELECT * FROM estate WHERE id = ?`
+	query := `SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE id = ?`
 	err = db.Get(&estate, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -942,34 +942,6 @@ func postEstateRequestDocument(c echo.Context) error {
 
 func getEstateSearchCondition(c echo.Context) error {
 	return c.JSON(http.StatusOK, estateSearchCondition)
-}
-
-func (cs Coordinates) getBoundingBox() BoundingBox {
-	coordinates := cs.Coordinates
-	boundingBox := BoundingBox{
-		TopLeftCorner: Coordinate{
-			Latitude: coordinates[0].Latitude, Longitude: coordinates[0].Longitude,
-		},
-		BottomRightCorner: Coordinate{
-			Latitude: coordinates[0].Latitude, Longitude: coordinates[0].Longitude,
-		},
-	}
-	for _, coordinate := range coordinates {
-		if boundingBox.TopLeftCorner.Latitude > coordinate.Latitude {
-			boundingBox.TopLeftCorner.Latitude = coordinate.Latitude
-		}
-		if boundingBox.TopLeftCorner.Longitude > coordinate.Longitude {
-			boundingBox.TopLeftCorner.Longitude = coordinate.Longitude
-		}
-
-		if boundingBox.BottomRightCorner.Latitude < coordinate.Latitude {
-			boundingBox.BottomRightCorner.Latitude = coordinate.Latitude
-		}
-		if boundingBox.BottomRightCorner.Longitude < coordinate.Longitude {
-			boundingBox.BottomRightCorner.Longitude = coordinate.Longitude
-		}
-	}
-	return boundingBox
 }
 
 func (cs Coordinates) coordinatesToText() string {

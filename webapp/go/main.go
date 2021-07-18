@@ -864,10 +864,11 @@ func searchEstateNazotte(c echo.Context) error {
 
 	estatesInPolygon := []Estate{}
 	query := fmt.Sprintf(
-		`SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE ST_Contains(ST_PolygonFromText(%s), locate order by search_popularity, id limit ?`,
+		`SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE ST_Contains(ST_PolygonFromText(%s), locate) order by search_popularity, id limit %d`,
 		coordinates.coordinatesToText(),
+		NazotteLimit,
 	)
-	err = db.Get(&estatesInPolygon, query, NazotteLimit)
+	err = db.Select(&estatesInPolygon, query)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return c.NoContent(http.StatusBadRequest)

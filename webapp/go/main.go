@@ -793,7 +793,7 @@ func searchEstates(c echo.Context) error {
 	searchQuery := "SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE "
 	countQuery := "SELECT COUNT(*) FROM estate WHERE "
 	searchCondition := strings.Join(conditions, " AND ")
-	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
+	limitOffset := " ORDER BY search_popularity ASC, id ASC LIMIT ? OFFSET ?"
 
 	var res EstateSearchResponse
 	err = db.Get(&res.Count, countQuery+searchCondition, params...)

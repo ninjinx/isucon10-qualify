@@ -23,7 +23,8 @@ CREATE TABLE isuumo.estate (
   ) STORED,
   PRIMARY KEY (`id`),
   KEY `nazotte_filter` (`latitude`, `longitude`),
-  KEY `nazotte` (`search_popularity`, `id`)
+  KEY `nazotte_sort` (`search_popularity`, `id`),
+  KEY `low_price_sort` (`rent`, `id`)
 );
 
 CREATE TABLE isuumo.chair (

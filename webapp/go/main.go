@@ -388,7 +388,7 @@ func postChair(c echo.Context) error {
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		query += fmt.Sprintf("(%d,%s,%s,%s,%d,%d,%d,%d,%s,%s,%s,%d,%d), ",
+		query += fmt.Sprintf("(%d,\"%s\",\"%s\",\"%s\",%d,%d,%d,%d,\"%s\",\"%s\",\"%s\",%d,%d), ",
 			id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock)
 	}
 
@@ -693,7 +693,7 @@ func postEstate(c echo.Context) error {
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		query += fmt.Sprintf("(%d,%s,%s,%s,%s,%f,%f,%d,%d,%d,%s,%d), ",
+		query += fmt.Sprintf("(%d,\"%s\",\"%s\",\"%s\",\"%s\",%f,%f,%d,%d,%d,\"%s\",%d), ",
 			id, name, description, thumbnail, address, latitude, longitude, rent, doorHeight, doorWidth, features, popularity)
 	}
 

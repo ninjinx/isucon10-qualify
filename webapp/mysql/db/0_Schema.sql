@@ -41,5 +41,6 @@ CREATE TABLE isuumo.chair (
   kind VARCHAR(64) NOT NULL,
   popularity INTEGER NOT NULL,
   stock INTEGER NOT NULL,
-  KEY `stock_sort` (`stock`, `price`, `id`)
+  KEY `price_sort` (`price`, `id`),
+  KEY `stock` (`stock`)
 );

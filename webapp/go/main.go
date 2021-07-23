@@ -147,6 +147,10 @@ type RecordMapper struct {
 	err    error
 }
 
+type Id struct {
+	ID int64 `db:"id"`
+}
+
 func (r *RecordMapper) next() (string, error) {
 	if r.err != nil {
 		return "", r.err
@@ -862,19 +866,36 @@ func searchEstateNazotte(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
-	estatesInPolygon := []Estate{}
-	query := fmt.Sprintf(
-		`SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE ST_Contains(ST_PolygonFromText(%s), locate) order by search_popularity, id limit %d`,
-		coordinates.coordinatesToText(),
-		NazotteLimit,
-	)
-	err = db.Select(&estatesInPolygon, query)
+	b := coordinates.getBoundingBox()
+	targetIds := []Id{}
+	preQuery := `SELECT id FROM estate WHERE latitude <= ? AND latitude >= ? AND longitude <= ? AND longitude >= ?`
+	err = db.Select(&targetIds, preQuery, b.BottomRightCorner.Latitude, b.TopLeftCorner.Latitude, b.BottomRightCorner.Longitude, b.TopLeftCorner.Longitude)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return c.NoContent(http.StatusBadRequest)
 		} else {
-			c.Echo().Logger.Errorf("db access is failed on executing validate if estate is in polygon : %v", err)
+			c.Echo().Logger.Errorf("db access is failed on executing filter estate : %v", err)
 			return c.NoContent(http.StatusInternalServerError)
+		}
+	}
+
+	estatesInPolygon := []Estate{}
+	if len(targetIds) > 0 {
+		query := fmt.Sprintf(
+			`SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity `+
+				`FROM estate WHERE id in (%s) AND ST_Contains(ST_PolygonFromText(%s), locate) order by search_popularity, id limit %d`,
+			idsToText(targetIds),
+			coordinates.coordinatesToText(),
+			NazotteLimit,
+		)
+		err = db.Select(&estatesInPolygon, query)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.NoContent(http.StatusBadRequest)
+			} else {
+				c.Echo().Logger.Errorf("db access is failed on executing validate if estate is in polygon : %v", err)
+				return c.NoContent(http.StatusInternalServerError)
+			}
 		}
 	}
 
@@ -928,4 +949,42 @@ func (cs Coordinates) coordinatesToText() string {
 		points = append(points, fmt.Sprintf("%f %f", c.Latitude, c.Longitude))
 	}
 	return fmt.Sprintf("'POLYGON((%s))'", strings.Join(points, ","))
+}
+
+func (cs Coordinates) getBoundingBox() BoundingBox {
+	coordinates := cs.Coordinates
+	boundingBox := BoundingBox{
+		TopLeftCorner: Coordinate{
+			Latitude: coordinates[0].Latitude, Longitude: coordinates[0].Longitude,
+		},
+		BottomRightCorner: Coordinate{
+			Latitude: coordinates[0].Latitude, Longitude: coordinates[0].Longitude,
+		},
+	}
+	for _, coordinate := range coordinates {
+		if boundingBox.TopLeftCorner.Latitude > coordinate.Latitude {
+			boundingBox.TopLeftCorner.Latitude = coordinate.Latitude
+		}
+		if boundingBox.TopLeftCorner.Longitude > coordinate.Longitude {
+			boundingBox.TopLeftCorner.Longitude = coordinate.Longitude
+		}
+
+		if boundingBox.BottomRightCorner.Latitude < coordinate.Latitude {
+			boundingBox.BottomRightCorner.Latitude = coordinate.Latitude
+		}
+		if boundingBox.BottomRightCorner.Longitude < coordinate.Longitude {
+			boundingBox.BottomRightCorner.Longitude = coordinate.Longitude
+		}
+	}
+	return boundingBox
+}
+
+func idsToText(ids []Id) string {
+	text := ""
+
+	for _, id := range ids {
+		text += fmt.Sprintf("%d, ", id.ID)
+	}
+
+	return text[:len(text)-2]
 }

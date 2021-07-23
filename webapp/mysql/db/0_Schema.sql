@@ -22,6 +22,7 @@ CREATE TABLE isuumo.estate (
     st_geometryfromtext(concat('POINT(', `latitude`, ' ', `longitude`, ')'))
   ) STORED,
   PRIMARY KEY (`id`),
+  KEY `nazotte_filter` (`latitude`, `longitude`),
   KEY `nazotte` (`search_popularity`, `id`)
 );
 

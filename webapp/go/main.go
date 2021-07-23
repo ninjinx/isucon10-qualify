@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -853,21 +854,78 @@ func searchRecommendedEstateWithChair(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	var estates []Estate
-	w := chair.Width
-	h := chair.Height
-	d := chair.Depth
-	query = `SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) OR (door_width >= ? AND door_height >= ?) ORDER BY popularity DESC, id ASC LIMIT ?`
-	err = db.Select(&estates, query, w, h, w, d, h, w, h, d, d, w, d, h, Limit)
+	// 最小値を求める
+	lenList := []int{int(chair.Width), int(chair.Height), int(chair.Depth)}
+	sort.Sort(sort.IntSlice(lenList))
+	m1 := lenList[0]
+	m2 := lenList[1]
+
+	estates1, err := searchEstatesByDoorSize(m1, m2)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return c.JSON(http.StatusOK, EstateListResponse{[]Estate{}})
-		}
 		c.Logger().Errorf("Database execution error : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	estates2, err := searchEstatesByDoorSize(m2, m1)
+	if err != nil {
+		c.Logger().Errorf("Database execution error : %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	estates := mergeEstates(Limit, estates1, estates2)
+
 	return c.JSON(http.StatusOK, EstateListResponse{Estates: estates})
+}
+
+func searchEstatesByDoorSize(w, h int) ([]Estate, error) {
+	estates := []Estate{}
+	query := `SELECT id, thumbnail, name, description, latitude, longitude, address, rent, door_height, door_width, features, popularity FROM estate WHERE door_width >= ? AND door_height >= ? ORDER BY search_popularity ASC, id ASC LIMIT ?`
+	err := db.Select(&estates, query, w, h, Limit)
+
+	if err == sql.ErrNoRows {
+		return estates, nil
+	}
+
+	return estates, err
+}
+
+func mergeEstates(limit int, estates1, estates2 []Estate) []Estate {
+	if len(estates1) == 0 && len(estates2) == 0 {
+		return []Estate{}
+	}
+
+	if len(estates1) == 0 {
+		return estates2
+	}
+
+	if len(estates2) == 0 {
+		return estates1
+	}
+
+	uniq := estates1
+	ids := make(map[int64]bool, len(estates1))
+	for _, e1 := range estates1 {
+		ids[e1.ID] = true
+	}
+	for _, e2 := range estates2 {
+		if !ids[e2.ID] {
+			uniq = append(uniq, e2)
+		}
+	}
+
+	sort.Slice(uniq, func(i, j int) bool {
+		if uniq[i].Popularity == uniq[j].Popularity {
+			return uniq[i].ID < uniq[j].ID
+		}
+
+		return uniq[i].Popularity > uniq[j].Popularity
+	})
+
+	if len(uniq) > limit {
+		uniq = uniq[:limit]
+	}
+
+	return uniq
 }
 
 func searchEstateNazotte(c echo.Context) error {

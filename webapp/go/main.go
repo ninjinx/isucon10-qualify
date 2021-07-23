@@ -856,7 +856,7 @@ func searchRecommendedEstateWithChair(c echo.Context) error {
 
 	// 最小値を求める
 	lenList := []int{int(chair.Width), int(chair.Height), int(chair.Depth)}
-	sort.Sort(sort.IntSlice(lenList))
+	sort.Ints(lenList)
 	m1 := lenList[0]
 	m2 := lenList[1]
 

@@ -24,7 +24,7 @@ CREATE TABLE isuumo.estate (
   PRIMARY KEY (`id`),
   KEY `nazotte_filter` (`latitude`, `longitude`),
   KEY `door_size` (`door_width`, `door_height`),
-  KEY `nazotte_sort` (`search_popularity`, `id`),
+  KEY `popularity_sort` (`search_popularity`, `id`),
   KEY `low_price_sort` (`rent`, `id`)
 );
 
@@ -42,6 +42,8 @@ CREATE TABLE isuumo.chair (
   kind VARCHAR(64) NOT NULL,
   popularity INTEGER NOT NULL,
   stock INTEGER NOT NULL,
+  `search_popularity` int(11) GENERATED ALWAYS AS (concat(-(`popularity`))) STORED NOT NULL,
+  KEY `popularity_sort` (`search_popularity`, `id`),
   KEY `price_sort` (`price`, `id`),
   KEY `stock` (`stock`)
 );

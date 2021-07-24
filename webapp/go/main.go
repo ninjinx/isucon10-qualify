@@ -515,7 +515,7 @@ func getChairConditions(hId, wId, dId, pId, kind, color string, conditions []str
 		conditions = append(conditions, "kind_id = 4")
 	}
 
-	switch kind {
+	switch color {
 	case "黒":
 		conditions = append(conditions, "color_id = 1")
 	case "白":

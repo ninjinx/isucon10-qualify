@@ -411,82 +411,9 @@ func searchChairs(c echo.Context) error {
 	conditions := make([]string, 0)
 	params := make([]interface{}, 0)
 
-	if c.QueryParam("priceRangeId") != "" {
-		chairPrice, err := getRange(chairSearchCondition.Price, c.QueryParam("priceRangeId"))
-		if err != nil {
-			c.Echo().Logger.Infof("priceRangeID invalid, %v : %v", c.QueryParam("priceRangeId"), err)
-			return c.NoContent(http.StatusBadRequest)
-		}
-
-		if chairPrice.Min != -1 {
-			conditions = append(conditions, "price >= ?")
-			params = append(params, chairPrice.Min)
-		}
-		if chairPrice.Max != -1 {
-			conditions = append(conditions, "price < ?")
-			params = append(params, chairPrice.Max)
-		}
-	}
-
-	if c.QueryParam("heightRangeId") != "" {
-		chairHeight, err := getRange(chairSearchCondition.Height, c.QueryParam("heightRangeId"))
-		if err != nil {
-			c.Echo().Logger.Infof("heightRangeIf invalid, %v : %v", c.QueryParam("heightRangeId"), err)
-			return c.NoContent(http.StatusBadRequest)
-		}
-
-		if chairHeight.Min != -1 {
-			conditions = append(conditions, "height >= ?")
-			params = append(params, chairHeight.Min)
-		}
-		if chairHeight.Max != -1 {
-			conditions = append(conditions, "height < ?")
-			params = append(params, chairHeight.Max)
-		}
-	}
-
-	if c.QueryParam("widthRangeId") != "" {
-		chairWidth, err := getRange(chairSearchCondition.Width, c.QueryParam("widthRangeId"))
-		if err != nil {
-			c.Echo().Logger.Infof("widthRangeID invalid, %v : %v", c.QueryParam("widthRangeId"), err)
-			return c.NoContent(http.StatusBadRequest)
-		}
-
-		if chairWidth.Min != -1 {
-			conditions = append(conditions, "width >= ?")
-			params = append(params, chairWidth.Min)
-		}
-		if chairWidth.Max != -1 {
-			conditions = append(conditions, "width < ?")
-			params = append(params, chairWidth.Max)
-		}
-	}
-
-	if c.QueryParam("depthRangeId") != "" {
-		chairDepth, err := getRange(chairSearchCondition.Depth, c.QueryParam("depthRangeId"))
-		if err != nil {
-			c.Echo().Logger.Infof("depthRangeId invalid, %v : %v", c.QueryParam("depthRangeId"), err)
-			return c.NoContent(http.StatusBadRequest)
-		}
-
-		if chairDepth.Min != -1 {
-			conditions = append(conditions, "depth >= ?")
-			params = append(params, chairDepth.Min)
-		}
-		if chairDepth.Max != -1 {
-			conditions = append(conditions, "depth < ?")
-			params = append(params, chairDepth.Max)
-		}
-	}
-
-	if c.QueryParam("kind") != "" {
-		conditions = append(conditions, "kind = ?")
-		params = append(params, c.QueryParam("kind"))
-	}
-
-	if c.QueryParam("color") != "" {
-		conditions = append(conditions, "color = ?")
-		params = append(params, c.QueryParam("color"))
+	condtionText := getChairConditionText(c.QueryParam("heightRangeId"), c.QueryParam("widthRangeId"), c.QueryParam("depthRangeId"), c.QueryParam("priceRangeId"), c.QueryParam("kind"), c.QueryParam("color"))
+	if condtionText != "" {
+		conditions = append(conditions, condtionText)
 	}
 
 	if c.QueryParam("features") != "" {
@@ -541,6 +468,91 @@ func searchChairs(c echo.Context) error {
 	res.Chairs = chairs
 
 	return c.JSON(http.StatusOK, res)
+}
+
+func getChairConditionText(hId, wId, dId, pId, kind, color string) string {
+	conditionText := ""
+
+	if hId+wId+dId+pId+kind+color == "" {
+		return conditionText
+	}
+
+	hIds := []string{"0", "1", "2", "3"}
+	if hId != "" {
+		hIds = []string{hId}
+	}
+
+	wIds := []string{"0", "1", "2", "3"}
+	if wId != "" {
+		wIds = []string{wId}
+	}
+
+	dIds := []string{"0", "1", "2", "3"}
+	if hId != "" {
+		hIds = []string{hId}
+	}
+
+	pIds := []string{"0", "1", "2", "3", "4", "5"}
+	if pId != "" {
+		pIds = []string{pId}
+	}
+
+	kIds := []string{"1", "2", "3", "4"}
+	switch kind {
+	case "ゲーミングチェア":
+		kIds = []string{"1"}
+	case "座椅子":
+		kIds = []string{"1"}
+	case "エルゴノミクス":
+		kIds = []string{"1"}
+	case "ハンモック":
+		kIds = []string{"1"}
+	}
+
+	cIds := []string{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"}
+	switch kind {
+	case "黒":
+		kIds = []string{"01"}
+	case "白":
+		kIds = []string{"02"}
+	case "赤":
+		kIds = []string{"03"}
+	case "青":
+		kIds = []string{"04"}
+	case "緑":
+		kIds = []string{"05"}
+	case "黄":
+		kIds = []string{"06"}
+	case "紫":
+		kIds = []string{"07"}
+	case "ピンク":
+		kIds = []string{"08"}
+	case "オレンジ":
+		kIds = []string{"09"}
+	case "水色":
+		kIds = []string{"10"}
+	case "ネイビー":
+		kIds = []string{"11"}
+	case "ベージュ":
+		kIds = []string{"12"}
+	}
+
+	conditionText += "search_condition_id in ("
+	for _, h := range hIds {
+		for _, w := range wIds {
+			for _, d := range dIds {
+				for _, p := range pIds {
+					for _, k := range kIds {
+						for _, c := range cIds {
+							conditionText += h + w + d + p + k + c + ", "
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return conditionText[:len(conditionText)-2] + ")"
 }
 
 func buyChair(c echo.Context) error {
@@ -634,19 +646,6 @@ func getEstateDetail(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, estate)
-}
-
-func getRange(cond RangeCondition, rangeID string) (*Range, error) {
-	RangeIndex, err := strconv.Atoi(rangeID)
-	if err != nil {
-		return nil, err
-	}
-
-	if RangeIndex < 0 || len(cond.Ranges) <= RangeIndex {
-		return nil, fmt.Errorf("Unexpected Range ID")
-	}
-
-	return cond.Ranges[RangeIndex], nil
 }
 
 func postEstate(c echo.Context) error {

@@ -716,55 +716,9 @@ func searchEstates(c echo.Context) error {
 	conditions := make([]string, 0)
 	params := make([]interface{}, 0)
 
-	if c.QueryParam("doorHeightRangeId") != "" {
-		doorHeight, err := getRange(estateSearchCondition.DoorHeight, c.QueryParam("doorHeightRangeId"))
-		if err != nil {
-			c.Echo().Logger.Infof("doorHeightRangeID invalid, %v : %v", c.QueryParam("doorHeightRangeId"), err)
-			return c.NoContent(http.StatusBadRequest)
-		}
-
-		if doorHeight.Min != -1 {
-			conditions = append(conditions, "door_height >= ?")
-			params = append(params, doorHeight.Min)
-		}
-		if doorHeight.Max != -1 {
-			conditions = append(conditions, "door_height < ?")
-			params = append(params, doorHeight.Max)
-		}
-	}
-
-	if c.QueryParam("doorWidthRangeId") != "" {
-		doorWidth, err := getRange(estateSearchCondition.DoorWidth, c.QueryParam("doorWidthRangeId"))
-		if err != nil {
-			c.Echo().Logger.Infof("doorWidthRangeID invalid, %v : %v", c.QueryParam("doorWidthRangeId"), err)
-			return c.NoContent(http.StatusBadRequest)
-		}
-
-		if doorWidth.Min != -1 {
-			conditions = append(conditions, "door_width >= ?")
-			params = append(params, doorWidth.Min)
-		}
-		if doorWidth.Max != -1 {
-			conditions = append(conditions, "door_width < ?")
-			params = append(params, doorWidth.Max)
-		}
-	}
-
-	if c.QueryParam("rentRangeId") != "" {
-		estateRent, err := getRange(estateSearchCondition.Rent, c.QueryParam("rentRangeId"))
-		if err != nil {
-			c.Echo().Logger.Infof("rentRangeID invalid, %v : %v", c.QueryParam("rentRangeId"), err)
-			return c.NoContent(http.StatusBadRequest)
-		}
-
-		if estateRent.Min != -1 {
-			conditions = append(conditions, "rent >= ?")
-			params = append(params, estateRent.Min)
-		}
-		if estateRent.Max != -1 {
-			conditions = append(conditions, "rent < ?")
-			params = append(params, estateRent.Max)
-		}
+	condtionText := getEstateConditionText(c.QueryParam("doorWidthRangeId"), c.QueryParam("doorHeightRangeId"), c.QueryParam("rentRangeId"))
+	if condtionText != "" {
+		conditions = append(conditions, condtionText)
 	}
 
 	if c.QueryParam("features") != "" {
@@ -817,6 +771,40 @@ func searchEstates(c echo.Context) error {
 	res.Estates = estates
 
 	return c.JSON(http.StatusOK, res)
+}
+
+func getEstateConditionText(wId, hId, rId string) string {
+	conditionText := ""
+
+	if wId+hId+rId == "" {
+		return conditionText
+	}
+
+	wIds := []string{"0", "1", "2", "3"}
+	if wId != "" {
+		wIds = []string{wId}
+	}
+
+	hIds := []string{"0", "1", "2", "3"}
+	if hId != "" {
+		hIds = []string{hId}
+	}
+
+	rIds := []string{"0", "1", "2", "3"}
+	if rId != "" {
+		rIds = []string{rId}
+	}
+
+	conditionText += "search_condition_id in ("
+	for _, w := range wIds {
+		for _, h := range hIds {
+			for _, r := range rIds {
+				conditionText += w + h + r + ", "
+			}
+		}
+	}
+
+	return conditionText[:len(conditionText)-2] + ")"
 }
 
 func getLowPricedEstate(c echo.Context) error {

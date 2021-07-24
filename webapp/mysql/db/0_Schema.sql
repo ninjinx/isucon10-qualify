@@ -21,9 +21,15 @@ CREATE TABLE isuumo.estate (
   `locate` geometry GENERATED ALWAYS AS (
     st_geometryfromtext(concat('POINT(', `latitude`, ' ', `longitude`, ')'))
   ) STORED,
+  `search_condition_id` int(11) GENERATED ALWAYS AS (concat(
+    (CASE WHEN door_width >= 150 THEN 3 WHEN door_width >= 110 THEN 2 WHEN door_width >= 80 THEN 1 ELSE 0 END),
+    (CASE WHEN door_height >= 150 THEN 3 WHEN door_height >= 110 THEN 2 WHEN door_height >= 80 THEN 1 ELSE 0 END),
+    (CASE WHEN rent >= 150000 THEN 3 WHEN rent >= 100000 THEN 2 WHEN rent >= 50000 THEN 1 ELSE 0 END)
+    )) STORED NOT NULL,
   PRIMARY KEY (`id`),
   KEY `nazotte_filter` (`latitude`, `longitude`),
   KEY `door_size` (`door_width`, `door_height`),
+  KEY `search_condition` (`search_condition_id`),
   KEY `popularity_sort` (`search_popularity`, `id`),
   KEY `low_price_sort` (`rent`, `id`)
 );

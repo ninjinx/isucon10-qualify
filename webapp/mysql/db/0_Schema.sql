@@ -53,12 +53,18 @@ CREATE TABLE isuumo.chair (
     (CASE WHEN height >= 150 THEN 3 WHEN height >= 110 THEN 2 WHEN height >= 80 THEN 1 ELSE 0 END),
     (CASE WHEN width >= 150 THEN 3 WHEN width >= 110 THEN 2 WHEN width >= 80 THEN 1 ELSE 0 END),
     (CASE WHEN depth >= 150 THEN 3 WHEN depth >= 110 THEN 2 WHEN depth >= 80 THEN 1 ELSE 0 END),
-    (CASE WHEN price >= 15000 THEN 5 WHEN price >= 12000 THEN 4 WHEN price >= 9000 THEN 3 WHEN price >= 6000 THEN 2 WHEN price >= 3000 THEN 1 ELSE 0 END),
-    (CASE WHEN kind = "ゲーミングチェア" THEN 1 WHEN kind = "座椅子" THEN 2 WHEN kind = "エルゴノミクス" THEN 3 WHEN kind = "ハンモック" THEN 4 ELSE 0 END),
+    (CASE WHEN price >= 15000 THEN 5 WHEN price >= 12000 THEN 4 WHEN price >= 9000 THEN 3 WHEN price >= 6000 THEN 2 WHEN price >= 3000 THEN 1 ELSE 0 END)
+    )) STORED NOT NULL,
+  `kind_id` int(11) GENERATED ALWAYS AS (concat(
+    (CASE WHEN kind = "ゲーミングチェア" THEN 1 WHEN kind = "座椅子" THEN 2 WHEN kind = "エルゴノミクス" THEN 3 WHEN kind = "ハンモック" THEN 4 ELSE 0 END)
+    )) STORED NOT NULL,
+  `color_id` int(11) GENERATED ALWAYS AS (concat(
     (CASE WHEN color = "黒" THEN "01" WHEN color = "白" THEN "02" WHEN color = "赤" THEN "03" WHEN color = "青" THEN "04" WHEN color = "緑" THEN "05" WHEN color = "黄" THEN "06" WHEN color = "紫" THEN "07" WHEN color = "ピンク" THEN "08" WHEN color = "オレンジ" THEN "09" WHEN color = "水色" THEN "10" WHEN color = "ネイビー" THEN "11" WHEN color = "ベージュ" THEN "12" ELSE "00" END)
     )) STORED NOT NULL,
   KEY `popularity_sort` (`search_popularity`, `id`),
   KEY `price_sort` (`price`, `id`),
   KEY `stock` (`stock`),
-  KEY `search_condition` (`search_condition_id`)
+  KEY `kind` (`kind_id`, `stock`),
+  KEY `color` (`color_id`, `stock`),
+  KEY `search_condition` (`search_condition_id`, `stock`)
 );

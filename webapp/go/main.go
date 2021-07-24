@@ -411,10 +411,7 @@ func searchChairs(c echo.Context) error {
 	conditions := make([]string, 0)
 	params := make([]interface{}, 0)
 
-	condtionText := getChairConditionText(c.QueryParam("heightRangeId"), c.QueryParam("widthRangeId"), c.QueryParam("depthRangeId"), c.QueryParam("priceRangeId"), c.QueryParam("kind"), c.QueryParam("color"))
-	if condtionText != "" {
-		conditions = append(conditions, condtionText)
-	}
+	conditions = getChairConditions(c.QueryParam("heightRangeId"), c.QueryParam("widthRangeId"), c.QueryParam("depthRangeId"), c.QueryParam("priceRangeId"), c.QueryParam("kind"), c.QueryParam("color"), conditions)
 
 	if c.QueryParam("features") != "" {
 		for _, f := range strings.Split(c.QueryParam("features"), ",") {
@@ -470,89 +467,82 @@ func searchChairs(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
-func getChairConditionText(hId, wId, dId, pId, kind, color string) string {
-	conditionText := ""
+func getChairConditions(hId, wId, dId, pId, kind, color string, conditions []string) []string {
+	if hId+wId+dId+pId != "" {
+		conditionText := ""
+		hIds := []string{"0", "1", "2", "3"}
+		if hId != "" {
+			hIds = []string{hId}
+		}
 
-	if hId+wId+dId+pId+kind+color == "" {
-		return conditionText
-	}
+		wIds := []string{"0", "1", "2", "3"}
+		if wId != "" {
+			wIds = []string{wId}
+		}
 
-	hIds := []string{"0", "1", "2", "3"}
-	if hId != "" {
-		hIds = []string{hId}
-	}
+		dIds := []string{"0", "1", "2", "3"}
+		if hId != "" {
+			hIds = []string{hId}
+		}
 
-	wIds := []string{"0", "1", "2", "3"}
-	if wId != "" {
-		wIds = []string{wId}
-	}
+		pIds := []string{"0", "1", "2", "3", "4", "5"}
+		if pId != "" {
+			pIds = []string{pId}
+		}
 
-	dIds := []string{"0", "1", "2", "3"}
-	if hId != "" {
-		hIds = []string{hId}
-	}
-
-	pIds := []string{"0", "1", "2", "3", "4", "5"}
-	if pId != "" {
-		pIds = []string{pId}
-	}
-
-	kIds := []string{"1", "2", "3", "4"}
-	switch kind {
-	case "ゲーミングチェア":
-		kIds = []string{"1"}
-	case "座椅子":
-		kIds = []string{"1"}
-	case "エルゴノミクス":
-		kIds = []string{"1"}
-	case "ハンモック":
-		kIds = []string{"1"}
-	}
-
-	cIds := []string{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"}
-	switch kind {
-	case "黒":
-		kIds = []string{"01"}
-	case "白":
-		kIds = []string{"02"}
-	case "赤":
-		kIds = []string{"03"}
-	case "青":
-		kIds = []string{"04"}
-	case "緑":
-		kIds = []string{"05"}
-	case "黄":
-		kIds = []string{"06"}
-	case "紫":
-		kIds = []string{"07"}
-	case "ピンク":
-		kIds = []string{"08"}
-	case "オレンジ":
-		kIds = []string{"09"}
-	case "水色":
-		kIds = []string{"10"}
-	case "ネイビー":
-		kIds = []string{"11"}
-	case "ベージュ":
-		kIds = []string{"12"}
-	}
-
-	conditionText += "search_condition_id in ("
-	for _, h := range hIds {
-		for _, w := range wIds {
-			for _, d := range dIds {
-				for _, p := range pIds {
-					for _, k := range kIds {
-						for _, c := range cIds {
-							conditionText += h + w + d + p + k + c + ", "
-						}
+		conditionText += "search_condition_id in ("
+		for _, h := range hIds {
+			for _, w := range wIds {
+				for _, d := range dIds {
+					for _, p := range pIds {
+						conditionText += h + w + d + p + ", "
 					}
 				}
 			}
 		}
+
+		conditions = append(conditions, conditionText[:len(conditionText)-2]+")")
 	}
 
-	return conditionText[:len(conditionText)-2] + ")"
+	switch kind {
+	case "ゲーミングチェア":
+		conditions = append(conditions, "kind_id = 1")
+	case "座椅子":
+		conditions = append(conditions, "kind_id = 2")
+	case "エルゴノミクス":
+		conditions = append(conditions, "kind_id = 3")
+	case "ハンモック":
+		conditions = append(conditions, "kind_id = 4")
+	}
+
+	switch kind {
+	case "黒":
+		conditions = append(conditions, "color_id = 1")
+	case "白":
+		conditions = append(conditions, "color_id = 2")
+	case "赤":
+		conditions = append(conditions, "color_id = 3")
+	case "青":
+		conditions = append(conditions, "color_id = 4")
+	case "緑":
+		conditions = append(conditions, "color_id = 5")
+	case "黄":
+		conditions = append(conditions, "color_id = 6")
+	case "紫":
+		conditions = append(conditions, "color_id = 7")
+	case "ピンク":
+		conditions = append(conditions, "color_id = 8")
+	case "オレンジ":
+		conditions = append(conditions, "color_id = 9")
+	case "水色":
+		conditions = append(conditions, "color_id = 10")
+	case "ネイビー":
+		conditions = append(conditions, "color_id = 11")
+	case "ベージュ":
+		conditions = append(conditions, "color_id = 12")
+	}
+
+	return conditions
 }
 
 func buyChair(c echo.Context) error {
